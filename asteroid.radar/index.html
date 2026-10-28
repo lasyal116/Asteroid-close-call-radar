@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asteroid Close-Call Radar</title>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080c14;
+      --panel: rgba(19, 27, 42, .92);
+      --line: rgba(183, 204, 231, .14);
+      --text: #f1f5fb;
+      --muted: #9baac0;
+      --cyan: #75e1ed;
+      --gold: #ffc875;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Inter, system-ui, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(ellipse at 75% 0%, rgba(35, 77, 112, .28), transparent 42%),
+        var(--bg);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: auto;
+      padding: 24px 0 50px;
+    }
+
+    .topbar,
+    .brand,
+    .pill,
+    .heading,
+    .controls,
+    .model-controls {
+      display: flex;
+      align-items: center;
+    }
+
+    .topbar,
+    .heading {
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .brand {
+      gap: 12px;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(117, 225, 237, .35);
+      border-radius: 14px;
+      color: var(--cyan);
+      font-size: 22px;
+      background: rgba(117, 225, 237, .08);
+    }
+
+    .brand-name {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .sub,
+    .muted {
+      color: var(--muted);
+    }
+
+    .sub {
+      margin-top: 3px;
+      font-size: 12px;
+    }
+
+    .pill {
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #c7d6e9;
+      font-size: 10px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 12px var(--cyan);
+    }
+
+    .hero {
+      max-width: 760px;
+      padding: 54px 0 28px;
+    }
+
+    .eyebrow,
+    .mini {
+      color: var(--cyan);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 14px 0 12px;
+      font-size: clamp(36px, 6vw, 64px);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+
+    .hero p {
+      max-width: 620px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(300px, .9fr);
+      gap: 18px;
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: 0 18px 70px rgba(0, 0, 0, .25);
+      backdrop-filter: blur(14px);
+    }
+
+    .panel-head {
+      padding: 20px 22px 0;
+    }
+
+    .heading h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .viewer {
+      position: relative;
+      height: 330px;
+      margin-top: 8px;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      background:
+        radial-gradient(ellipse at 50% 48%, rgba(33, 73, 103, .19), transparent 48%),
+        linear-gradient(180deg, transparent, rgba(3, 7, 13, .3));
+    }
+
+    .viewer:active {
+      cursor: grabbing;
+    }
+
+    .viewer canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .viewer-tag,
+    .hint {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .viewer-tag {
+      top: 16px;
+      right: 18px;
+      color: rgba(210, 225, 242, .62);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .14em;
+    }
+
+    .hint {
+      bottom: 16px;
+      left: 18px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(8, 12, 20, .66);
+      color: #c4d0df;
+      font-size: 11px;
+    }
+
+    .model-controls {
+      gap: 8px;
+      padding: 0 18px 8px;
+    }
+
+    .model-controls input {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .model-status {
+      margin: 0;
+      padding: 4px 18px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      padding: 0 18px 18px;
+    }
+
+    .metric {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, .025);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 7px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input {
+      min-height: 42px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      outline: none;
+      background: #101827;
+      color: var(--text);
+    }
+
+    input:focus {
+      border-color: var(--cyan);
+    }
+
+    button {
+      min-height: 42px;
+      padding: 0 15px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--cyan);
+      color: #07131a;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .controls {
+      gap: 9px;
+      padding: 18px 20px;
+      flex-wrap: wrap;
+    }
+
+    .data-status {
+      margin: 0 20px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .asteroid-list {
+      display: grid;
+      gap: 10px;
+      max-height: 310px;
+      overflow: auto;
+      padding: 0 20px 18px;
+    }
+
+    .asteroid-card {
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .asteroid-card h3 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .asteroid-card p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .asteroid-card a {
+      display: inline-block;
+      margin: 10px 9px 0 0;
+      color: var(--cyan);
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    .asteroid-card a:hover {
+      text-decoration: underline;
+    }
+
+    .warning {
+      color: var(--gold) !important;
+    }
+
+    .catalog {
+      margin-top: 18px;
+      padding-bottom: 18px;
+    }
+
+    .catalog-search {
+      width: 100%;
+      margin: 12px 0 4px;
+    }
+
+    .catalog-tools {
+      padding: 0 20px;
+    }
+
+    .catalog-results {
+      max-height: 440px;
+    }
+
+    .catalog-card {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .catalog-info {
+      min-width: 0;
+    }
+
+    .catalog-card button {
+      min-width: 145px;
+      min-height: 36px;
+      padding: 0 10px;
+      font-size: 11px;
+    }
+
+    .fine {
+      margin-top: 16px;
+      color: #8190a5;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .fine a {
+      color: var(--cyan);
+    }
+
+    @media (max-width: 800px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+
+      .viewer {
+        height: 290px;
+      }
+
+      .hero {
+        padding-top: 42px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .shell {
+        width: calc(100% - 22px);
+        padding-top: 15px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .hero {
+        padding: 40px 0 20px;
+      }
+
+      .metrics {
+        gap: 6px;
+        padding-inline: 12px;
+      }
+
+      .metric {
+        padding: 10px 8px;
+      }
+
+      .metric-value {
+        font-size: 11px;
+      }
+
+      .panel-head,
+      .controls {
+        padding-inline: 15px;
+      }
+
+      .asteroid-list {
+        padding-inline: 15px;
+      }
+
+      .data-status {
+        margin-inline: 15px;
+      }
+
+      .catalog-tools {
+        padding-inline: 15px;
+      }
+
+      .catalog-card {
+        display: block;
+      }
+
+      .catalog-card button {
+        margin-top: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">✦</div>
+        <div>
+          <div class="brand-name">Close-Call Radar</div>
+          <div class="sub">Near-Earth object explorer</div>
+        </div>
+      </div>
+      <div class="pill"><span class="dot"></span>NASA + DAMIT data</div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">Planetary neighborhood</div>
+      <h1>Get closer to<br>near-Earth asteroids.</h1>
+      <p>Explore asteroid shape models in 3D and browse close-approach data reported by NASA.</p>
+    </section>
+
+    <section class="dashboard">
+      <article class="panel">
+        <div class="panel-head">
+          <div class="heading">
+            <h2 id="model-title">Illustrative asteroid</h2>
+            <span class="mini" id="model-type">3D VIEWER</span>
+          </div>
+        </div>
+
+        <div class="viewer" id="viewer">
+          <span class="viewer-tag" id="viewer-tag">ILLUSTRATIVE MODEL</span>
+          <span class="hint">Drag to rotate · Scroll to zoom</span>
+        </div>
+
+        <div class="model-controls">
+          <input id="model-search" type="search" placeholder="Try Bennu" aria-label="Search local Bennu model">
+          <button id="bennu-button" type="button">Load Bennu</button>
+        </div>
+
+        <p class="model-status" id="model-status">
+          The default asteroid is illustrative. Use the catalog below to load a DAMIT shape model.
+        </p>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label">Selected model</div>
+            <div class="metric-value" id="metric-name">Illustrative</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Shape source</div>
+            <div class="metric-value" id="metric-source">Generated</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Controls</div>
+            <div class="metric-value">Drag + zoom</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div class="heading">
+            <h2>Close approaches</h2>
+            <span class="mini">NASA NEOWS</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <input type="date" id="date-picker" aria-label="Choose a date">
+          <button id="search-button" type="button">Search</button>
+        </div>
+
+        <p class="data-status" id="data-status">Loading NASA data…</p>
+        <div class="asteroid-list" id="asteroid-list"></div>
+      </article>
+    </section>
+
+    <section class="panel catalog">
+      <div class="panel-head">
+        <div class="heading">
+          <h2>Asteroid shape library</h2>
+          <span class="mini">DAMIT CATALOG</span>
+        </div>
+        <p class="muted">Search by asteroid name or number, then load a model into the viewer.</p>
+      </div>
+
+      <div class="catalog-tools">
+        <input
+          class="catalog-search"
+          id="library-search"
+          type="search"
+          placeholder="Try Ceres or 1"
+          aria-label="Search asteroid catalog"
+        >
+      </div>
+
+      <p class="data-status" id="library-status">Loading catalog…</p>
+      <div class="asteroid-list catalog-results" id="library-results"></div>
+    </section>
+
+    <p class="fine">
+      DAMIT models are scientific shape reconstructions with varying confidence; they are not all spacecraft scans and may not be to scale.
+      <a href="https://damit.cuni.cz/projects/damit/" target="_blank" rel="noopener">DAMIT database and attribution</a>.
+      A close approach does not mean an asteroid will hit Earth.
+    </p>
+  </main>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+    import { STLLoader } from "three/addons/loaders/STLLoader.js";
+
+    const viewer = document.getElementById("viewer");
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camera.position.set(0, 0, 5.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    viewer.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.055;
+    controls.enablePan = false;
+    controls.minDistance = 2.8;
+    controls.maxDistance = 8;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+
+    scene.add(new THREE.AmbientLight(0x9fb8d5, 1.5));
+
+    const keyLight = new THREE.DirectionalLight(0xffddb0, 3.2);
+    keyLight.position.set(-3, 4, 5);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.PointLight(0x4abbd0, 30, 12);
+    rimLight.position.set(3, -1, -3);
+    scene.add(rimLight);
+
+    const asteroidGroup = new THREE.Group();
+    scene.add(asteroidGroup);
+
+    const fallbackGeometry = new THREE.IcosahedronGeometry(1.45, 5);
+    const vertices = fallbackGeometry.attributes.position;
+
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i);
+      const y = vertices.getY(i);
+      const z = vertices.getZ(i);
+
+      const bump =
+        Math.sin(x * 8.1 + y * 4.7) * 0.045 +
+        Math.sin(y * 10.3 - z * 5.4) * 0.035 +
+        Math.cos(z * 9.2 + x * 3.8) * 0.04;
+
+      vertices.setXYZ(i, x * (1 + bump), y * (1 + bump), z * (1 + bump));
+    }
+
+    fallbackGeometry.computeVertexNormals();
+
+    const fallback = new THREE.Mesh(
+      fallbackGeometry,
+      new THREE.MeshStandardMaterial({
+        color: 0x92745e,
+        roughness: 0.96,
+        flatShading: true
+      })
+    );
+
+    asteroidGroup.add(fallback);
+
+    const starPositions = [];
+
+    for (let i = 0; i < 450; i++) {
+      starPositions.push(
+        (Math.random() - 0.5) * 18,
+        (Math.random() - 0.5) * 11,
+        -2 - Math.random() * 10
+      );
+    }
+
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(starPositions, 3)
+    );
+
+    scene.add(new THREE.Points(
+      starGeometry,
+      new THREE.PointsMaterial({
+        color: 0xbcd6e8,
+        size: 0.018,
+        transparent: true,
+        opacity: 0.72
+      })
+    ));
+
+    function resizeViewer() {
+      const width = viewer.clientWidth;
+      const height = viewer.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    new ResizeObserver(resizeViewer).observe(viewer);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    const modelStatus = document.getElementById("model-status");
+    const objLoader = new OBJLoader();
+    const stlLoader = new STLLoader();
+
+    function fitObject(object) {
+      const bounds = new THREE.Box3().setFromObject(object);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+
+      bounds.getSize(size);
+      bounds.getCenter(center);
+
+      const largestSide = Math.max(size.x, size.y, size.z) || 1;
+      const scale = 2.8 / largestSide;
+
+      object.scale.setScalar(scale);
+      object.position.set(
+        -center.x * scale,
+        -center.y * scale,
+        -center.z * scale
+      );
+    }
+
+    function setModelLabels(name, source, type) {
+      document.getElementById("model-title").textContent = name;
+      document.getElementById("model-type").textContent = type;
+      document.getElementById("viewer-tag").textContent = type;
+      document.getElementById("metric-name").textContent = name;
+      document.getElementById("metric-source").textContent = source;
+    }
+
+    window.loadDamitModel = function(modelId, asteroidName) {
+      modelStatus.textContent =
+        `Loading DAMIT model ${modelId} for ${asteroidName}…`;
+
+       const url = `http://localhost:8000/damit/${modelId}/shape.obj`;
+      objLoader.load(
+        url,
+        object => {
+          object.traverse(part => {
+            if (part.isMesh) {
+              part.material = new THREE.MeshStandardMaterial({
+                color: 0xb08b67,
+                roughness: 0.94,
+                flatShading: true
+              });
+              part.geometry.computeVertexNormals();
+            }
+          });
+
+          fitObject(object);
+          asteroidGroup.clear();
+          asteroidGroup.add(object);
+          setModelLabels(asteroidName, "DAMIT", "DAMIT SHAPE");
+          modelStatus.textContent =
+            `Showing the DAMIT shape reconstruction for ${asteroidName}. Drag to rotate; scroll to zoom.`;
+        },
+        undefined,
+        error => {
+          modelStatus.textContent =
+            "Could not load the DAMIT model. Check the browser console for details.";
+          console.error(error);
+        }
+      );
+    };
+
+    document.getElementById("bennu-button").addEventListener("click", () => {
+      modelStatus.textContent = "Loading local Bennu model…";
+
+      stlLoader.load(
+        "models/bennu.stl",
+        geometry => {
+          geometry.computeVertexNormals();
+          const mesh = new THREE.Mesh(
+            geometry,
+            new THREE.MeshStandardMaterial({
+              color: 0xb08b67,
+              roughness: 0.94,
+              flatShading: true
+            })
+          );
+
+          fitObject(mesh);
+          asteroidGroup.clear();
+          asteroidGroup.add(mesh);
+          setModelLabels("101955 Bennu", "NASA", "NASA SHAPE MODEL");
+          modelStatus.textContent =
+            "Showing the local Bennu shape model. Drag to rotate; scroll to zoom.";
+        },
+        undefined,
+        error => {
+          modelStatus.textContent =
+            "Could not load models/bennu.stl. Check that it is in your project's models folder.";
+          console.error(error);
+        }
+      );
+    });
+  </script>
+
+  <script>
+    const NASA_API_KEY = "PLACE-YOUR-KEY-HERE";
+    const datePicker = document.getElementById("date-picker");
+    const searchButton = document.getElementById("search-button");
+    const dataStatus = document.getElementById("data-status");
+    const asteroidList = document.getElementById("asteroid-list");
+
+    datePicker.value = new Date().toISOString().slice(0, 10);
+
+    async function loadAsteroids(date) {
+      asteroidList.replaceChildren();
+      dataStatus.textContent = "Loading data from NASA…";
+      searchButton.disabled = true;
+
+      const url =
+        `https://api.nasa.gov/neo/rest/v1/feed?start_date=${encodeURIComponent(date)}&end_date=${encodeURIComponent(date)}&api_key=${encodeURIComponent(NASA_API_KEY)}`;
+
+      try {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          const details = await response.text();
+          throw new Error(`NASA returned ${response.status}: ${details}`);
+        }
+
+        const data = await response.json();
+        const asteroids = data.near_earth_objects[date] || [];
+
+        if (asteroids.length === 0) {
+          dataStatus.textContent = "No close approaches were listed for that date.";
+          return;
+        }
+
+        dataStatus.textContent =
+          `${asteroids.length} object${asteroids.length === 1 ? "" : "s"} listed for ${date}.`;
+
+        for (const asteroid of asteroids) {
+          const approach = asteroid.close_approach_data[0];
+          const card = document.createElement("article");
+          card.className = "asteroid-card";
+
+          const title = document.createElement("h3");
+          title.textContent = asteroid.name;
+
+          const distance = document.createElement("p");
+          distance.textContent =
+            `Miss distance: ${Number(approach.miss_distance.kilometers).toLocaleString()} km`;
+
+          const diameter = document.createElement("p");
+          diameter.textContent =
+            `Estimated diameter: ${asteroid.estimated_diameter.kilometers.estimated_diameter_min.toFixed(3)}–${asteroid.estimated_diameter.kilometers.estimated_diameter_max.toFixed(3)} km`;
+
+          const hazard = document.createElement("p");
+          hazard.className =
+            asteroid.is_potentially_hazardous_asteroid ? "warning" : "";
+          hazard.textContent =
+            asteroid.is_potentially_hazardous_asteroid
+              ? "NASA classifies this as potentially hazardous"
+              : "Not classified as potentially hazardous by NASA";
+
+          const link = document.createElement("a");
+          link.href = asteroid.nasa_jpl_url;
+          link.target = "_blank";
+          link.rel = "noopener";
+          link.textContent = "Open NASA/JPL record ↗";
+
+          card.append(title, distance, diameter, hazard, link);
+          asteroidList.appendChild(card);
+        }
+      } catch (error) {
+        dataStatus.textContent = `Could not load NASA data: ${error.message}`;
+      } finally {
+        searchButton.disabled = false;
+      }
+    }
+
+    searchButton.addEventListener("click", () => {
+      loadAsteroids(datePicker.value);
+    });
+
+    if (NASA_API_KEY === "PASTE_YOUR_NASA_KEY_HERE") {
+      dataStatus.textContent = "Add your NASA API key in the code to load close-approach data.";
+    } else {
+      loadAsteroids(datePicker.value);
+    }
+  </script>
+
+  <script>
+    const librarySearch = document.getElementById("library-search");
+    const libraryStatus = document.getElementById("library-status");
+    const libraryResults = document.getElementById("library-results");
+
+    let asteroidRows = [];
+    let modelsByAsteroid = new Map();
+
+    function parseCSV(text) {
+      text = text.replace(/^\uFEFF/, "");
+
+      const rows = [];
+      let row = [];
+      let field = "";
+      let insideQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+
+        if (insideQuotes) {
+          if (char === '"' && text[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else if (char === '"') {
+            insideQuotes = false;
+          } else {
+            field += char;
+          }
+        } else if (char === '"') {
+          insideQuotes = true;
+        } else if (char === ",") {
+          row.push(field);
+          field = "";
+        } else if (char === "\n") {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = "";
+        } else if (char !== "\r") {
+          field += char;
+        }
+      }
+
+      if (field || row.length) {
+        row.push(field);
+        rows.push(row);
+      }
+
+      const headers = rows.shift() || [];
+
+      return rows
+        .filter(cells => cells.some(cell => cell.trim() !== ""))
+        .map(cells => {
+          const item = {};
+          headers.forEach((header, index) => {
+            item[header.trim()] = (cells[index] || "").trim();
+          });
+          return item;
+        });
+    }
+
+    function renderLibrary() {
+      const query = librarySearch.value.trim().toLowerCase();
+      libraryResults.replaceChildren();
+
+      if (!query) {
+        libraryStatus.textContent =
+          `Catalog ready: ${asteroidRows.length.toLocaleString()} asteroids. Search by name or number.`;
+        return;
+      }
+
+      const matches = asteroidRows
+        .filter(asteroid =>
+          [asteroid.number, asteroid.name, asteroid.designation]
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+        )
+        .slice(0, 20);
+
+      if (matches.length === 0) {
+        libraryStatus.textContent = "No matching asteroid found.";
+        return;
+      }
+
+      libraryStatus.textContent =
+        `Showing ${matches.length} result${matches.length === 1 ? "" : "s"}.`;
+
+      for (const asteroid of matches) {
+        const asteroidModels = modelsByAsteroid.get(asteroid.id) || [];
+        const card = document.createElement("article");
+        card.className = "asteroid-card catalog-card";
+
+        const info = document.createElement("div");
+        info.className = "catalog-info";
+
+        const title = document.createElement("h3");
+        title.textContent = asteroid.number
+          ? `(${asteroid.number}) ${asteroid.name || "Unnamed asteroid"}`
+          : asteroid.name || asteroid.designation || "Unnamed asteroid";
+
+        const summary = document.createElement("p");
+        summary.textContent =
+          `${asteroidModels.length} DAMIT shape model${asteroidModels.length === 1 ? "" : "s"} available`;
+
+        info.append(title, summary);
+        card.appendChild(info);
+
+        for (const model of asteroidModels.slice(0, 3)) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = `Load model ${model.id} into viewer`;
+          button.addEventListener("click", () => {
+            window.loadDamitModel(model.id, title.textContent);
+          });
+          card.appendChild(button);
+        }
+
+        if (asteroidModels.length > 3) {
+          const more = document.createElement("p");
+          more.textContent =
+            `${asteroidModels.length - 3} additional model records`;
+          info.appendChild(more);
+        }
+
+        libraryResults.appendChild(card);
+      }
+    }
+
+    async function startModelLibrary() {
+      try {
+        const [asteroidResponse, modelResponse] = await Promise.all([
+          fetch("./data/asteroids.csv"),
+          fetch("./data/asteroid_models.csv")
+        ]);
+
+        if (!asteroidResponse.ok || !modelResponse.ok) {
+          throw new Error("Could not find the CSV files in the data folder.");
+        }
+
+        const [asteroidText, modelText] = await Promise.all([
+          asteroidResponse.text(),
+          modelResponse.text()
+        ]);
+
+        asteroidRows = parseCSV(asteroidText);
+        const models = parseCSV(modelText);
+        modelsByAsteroid = new Map();
+
+        for (const model of models) {
+          if (!modelsByAsteroid.has(model.asteroid_id)) {
+            modelsByAsteroid.set(model.asteroid_id, []);
+          }
+          modelsByAsteroid.get(model.asteroid_id).push(model);
+        }
+
+        libraryStatus.textContent =
+          `Catalog ready: ${asteroidRows.length.toLocaleString()} asteroids. Search by name or number.`;
+
+        librarySearch.addEventListener("input", renderLibrary);
+      } catch (error) {
+        libraryStatus.textContent =
+          `${error.message} Check the data folder and open index.html with Live Server.`;
+      }
+    }
+
+    startModelLibrary();
+  </script>
+</body>
+</html>
